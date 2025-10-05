@@ -211,94 +211,218 @@ console.log(result.allocations); // Bob gets 2 hours
 
 ### Core Concepts & Data Model
 
-Entities
+#### Entities
 
-Participant (P): Individual, Organization, or Sovereign. Has an immutable identifier (DID). Owns 100% Total-Recognition.
+**Participant (P)**: Individual, Organization, or Sovereign
 
-Recognition Matrix (R): For each ordered pair (A,B): R[A][B] ∈ [0,100] representing A's recognition share of B's contribution towards A's self-actualization (percentage of A's Total-Recognition).
+- Has an immutable identifier (DID)
+- Owns 100% Total-Recognition
+- Can be both provider and recipient
 
-MutualRecognition (MR): MR(A,B) = min(R[A][B], R[B][A]).
+**Recognition Matrix (R)**: For each ordered pair (A,B)
 
-Capacity (C): Declared by a provider Prov(C) with structured metadata: type, quantity, slot(s), filters, divisibility, max_per_recipient, constraints, oracle_source.
+- \( R[A][B] \in [0,100] \)
+- Represents A's recognition share of B's contribution towards A's self-actualization
+- Percentage of A's Total-Recognition
 
-Filter: Boolean predicate per participant used to compute Specific-Share (e.g. skills, location, certification).
+**Mutual Recognition (MR)**:
 
-Desire (D): D[Recipient][Prov][Capacity] ∈ ℕ (units desired) or continuous fraction.
+- \( MR(A,B) = \min(R[A][B], R[B][A]) \)
+- The minimum of bidirectional recognition values
 
-Mutual-Desire (MD): MD = min(Provider_Desire, Recipient_Desire) per the spec.
+**Capacity (C)**: Declared by a provider with structured metadata
 
-Identifiers
+- `type`: Category of capacity (e.g., "piano-lessons", "compute-hours")
+- `quantity`: Total amount available
+- `unit`: Measurement unit (e.g., "hours/week")
+- `slots`: Time/resource subdivisions
+- `filters`: Eligibility criteria
+- `max_per_recipient`: Optional cap per recipient
+- `oracle_source`: External data verification (optional)
 
-All participants use Decentralized Identifiers (DIDs). Public keys sign commitments.
+**Filter**: Boolean predicate per participant
 
-Capacities and slots use UUIDv4.
+- Used to compute Specific-Share
+- Examples: skills, location, certification status
 
-Storage model
+**Desire (D)**:
 
-**Current Implementation:** Fully decentralized P2P storage via Holster/Gun with local-first data persistence.
+- \( D[\text{Recipient}][\text{Provider}][\text{Capacity}] \in \mathbb{N} \)
+- Units desired (discrete or continuous)
 
-**Future/Theoretical:** On-chain anchors (optional, light) for commitments and state hashes. Support for IPFS/Arweave for distributed backups with threshold encryption.
+**Mutual-Desire (MD)**:
+
+- \( MD = \min(\text{Provider_Desire}, \text{Recipient_Desire}) \)
+- Both sides must consent
+
+#### Identifiers
+
+- **DIDs**: All participants use Decentralized Identifiers
+- **Public Keys**: Sign commitments and declarations
+- **UUIDs**: Capacities and slots use UUIDv4
+
+#### Storage Model
+
+**Current Implementation:**
+
+- Fully decentralized P2P storage via Holster/Gun
+- Local-first data persistence
+- Real-time CRDT synchronization
+
+**Future/Theoretical:**
+
+- On-chain anchors (optional, light) for commitments and state hashes
+- IPFS/Arweave for distributed backups with threshold encryption
+- Blockchain integration for dispute resolution
 
 ---
 
-Cryptography & Privacy Model
+### Cryptography & Privacy Model
 
-Goals
+#### Goals
 
-Keep recognition values and desires private unless mutually exposed for settlement.
+- **Privacy**: Keep recognition values and desires private unless mutually exposed for settlement
+- **Verifiability**: Allow cryptographic proofs that allocation rules were followed correctly
+- **Non-repudiation**: All declarations are signed and immutable
 
-Allow verifiable proofs that allocation rules were followed.
+#### Cryptographic Primitives
 
-Primitives
+1. **DIDs & Verifiable Credentials**
+   - Decentralized identity and attributes
+   - Self-sovereign identity management
 
-1. DIDs & Verifiable Credentials: Identity and attributes.
+2. **Commitment Schemes** (Pedersen Commitments)
+   - Formula: \( C = vG + rH \) where \( v \) is value, \( r \) is randomness
+   - Properties: Hiding, binding, homomorphic
+   - Used for recognition values and desires
 
-2. Commitment Schemes: Pedersen commitments for recognition & desires: commit(x; r).
+3. **Secure Multi-Party Computation (MPC) / Trusted Execution Environments (TEE)**
+   - Compute MR matrices without revealing raw inputs
+   - Normalize shares in privacy-preserving manner
+   - Current: Local simulation for PoC
+   - Future: Distributed MPC clusters
 
-3. Secure Multi-Party Computation (MPC) OR Trusted Execution Environments (TEE): For computing MR matrices, normalization, and allocations without revealing raw inputs.
+4. **Zero-Knowledge Proofs (ZK-SNARK/PLONK)**
+   - Prove correctness of allocation computations
+   - Verify without revealing committed inputs
+   - Future enhancement for production
 
-4. Zero-Knowledge Proofs (ZK-SNARK/PLONK): To prove correctness of allocation computations given committed inputs.
+5. **Threshold Encryption & Proxy Re-Encryption**
+   - Share decrypted results only with authorized parties
+   - Arbitrator access in dispute scenarios
+   - Future enhancement
 
-5. Threshold Encryption & Proxy Re-Encryption: For sharing decrypted results only with mutually interested parties (or arbitrator if dispute).
+6. **Replay-proof Signed Messages**
+   - All declarations signed with private keys
+   - Timestamped for ordering
+   - Prevents replay attacks
 
-6. Replay-proof Signed Messages: All declarations signed and timestamped.
+#### Privacy Workflows
 
-Privacy Workflows
+**Commit Phase:**
 
-Commit Phase: Participants commit hashes/commitments of recognition vectors and desires on-chain or in append-only logs. These commitments timestamp state without revealing values.
+- Participants commit hashes/commitments of recognition vectors and desires
+- Commitments stored on-chain or in append-only logs
+- Timestamps state without revealing values
 
-Compute Phase: An MPC/Tee computes MR, normalized shares, and tentative allocations. It produces zk-proofs matching commitments.
+**Compute Phase:**
 
-Reveal Phase: Only data required for settlement is revealed to involved counterparties, and receipts (signed confirmations) are anchored on-chain.
+- MPC/TEE computes MR, normalized shares, and tentative allocations
+- Produces ZK-proofs matching commitments
+- No raw values exposed during computation
+
+**Reveal Phase:**
+
+- Only settlement-required data revealed to counterparties
+- Signed receipts/confirmations anchored on-chain
+- Privacy preserved for non-involved parties
 
 ---
 
-Core Algorithms (pseudocode)
+### Core Algorithms
 
-Mutual Recognition and General-Share
+#### Phase 1: Mutual Recognition Calculation
 
-# Inputs: recognition commitments R[A][*] (encrypted/committed), R[\*][A]
+**Inputs:**
 
-# Compute MR[A][B] = min(R[A][B], R[B][A]) for all pairs where both committed
+- Recognition commitments \( R[A][*] \) (encrypted/committed)
+- Recognition commitments \( R[\*][A] \)
 
-# For provider P and recipient U:
+**Algorithm:**
 
-GeneralShare(U, P) = MR(P, U) / SUM\_{x in RecipientsOfP} MR(P, x)
+```
+For each pair (A, B) where both have committed:
+  MR[A][B] = min(R[A][B], R[B][A])
+```
 
-Specific-Share & Allocation
+#### Phase 2: General Share Calculation
 
-SpecificShare(U, P, Capacity) = GeneralShare(U,P) \* Filter(U,Capacity)
-NormalizeSpecificShares across filtered recipients to sum to 1.
+**Formula:**
 
-MutualDesire(ProvCapacity, Recipient) = min(ProviderDeclaredToRecipient, RecipientRequestedFromProvider)
-NormalizedMRShare = MR(Prov, Recipient) / SUM\_{r in MutuallyDesiringRecipients} MR(Prov, r)
-RawAllocation = Capacity.quantity \* NormalizedMRShare
+```
+GeneralShare(U, P) = MR(P, U) / Σ(x in RecipientsOfP) MR(P, x)
+```
+
+Where:
+
+- \( U \) is the recipient
+- \( P \) is the provider
+- Sum is over all recipients with mutual desire
+
+#### Phase 3: Specific Share & Filtering
+
+**Algorithm:**
+
+```
+SpecificShare(U, P, Capacity) = GeneralShare(U, P) × Filter(U, Capacity)
+
+NormalizeSpecificShares:
+  Σ(all filtered recipients) SpecificShare = 1
+```
+
+**Filter examples:**
+
+- Skill level requirements
+- Geographic constraints
+- Certification status
+
+#### Phase 4: Mutual Desire & Allocation
+
+**Formulas:**
+
+```
+MutualDesire(Capacity, Recipient) = min(ProviderDeclared, RecipientRequested)
+
+NormalizedMRShare = MR(Prov, Recipient) / Σ(r in MutuallyDesiring) MR(Prov, r)
+
+RawAllocation = Capacity.quantity × NormalizedMRShare
+
 FinalAllocation = min(RawAllocation, MutualDesire)
-Redistribute unused capacity among unsatisfied mutually-desiring recipients iteratively
+```
 
-Zero-waste Redistribution (iterative)
+#### Phase 5: Zero-Waste Redistribution
 
-Keep a worklist of unsatisfied recipients; while leftover > epsilon: recompute normalized MR among unsatisfied recipients and allocate proportionally; stop when no more progress.
+**Algorithm:**
+
+```
+Initialize worklist = unsatisfied_recipients
+leftover = total_capacity - allocated
+
+while leftover > ε and len(worklist) > 0:
+  recompute normalized_MR among worklist
+  allocate proportionally to MR shares
+  remove satisfied recipients from worklist
+  update leftover
+
+  if no progress: break
+```
+
+**Properties:**
+
+- Iterative refinement
+- Respects mutual desire constraints
+- Minimizes waste
+- Converges to optimal allocation
 
 ---
 
@@ -325,25 +449,55 @@ Execution Model
 
 ---
 
-Tokenless Smart Contracts & Capabilities
+### Tokenless Smart Contracts & Capabilities
 
-Principles
+#### Design Principles
 
-Recognition values must not be fungible tokens. Instead, use capability tokens or signed one-time vouchers to represent an execution right that is non-transferable and bound to DIDs.
+1. **Non-Fungibility**: Recognition values must NOT be tradeable tokens
+2. **Non-Transferability**: Allocations bound to specific DIDs
+3. **Capability-Based**: Use signed vouchers representing execution rights
+4. **Verifiable**: Cryptographic proof of authorization
 
-Capability Token Design
+#### Capability Token Design
 
-Capability = sign( provider_DID, recipient_DID, capacity_id, slot_id, nonce, expiry )
+**Structure:**
 
-Stored as a signed JSON object; verifiable by any verifier via provider public key.
+```json
+{
+  "capability_id": "urn:cap:uuid-...",
+  "provider": "did:example:alice",
+  "recipient": "did:example:bob",
+  "capacity_id": "uuid-...",
+  "slot_ids": ["slot-..."],
+  "quantity": 2,
+  "nonce": "...",
+  "expiry": "2026-01-01T00:00:00Z",
+  "signature": "sig_base64"
+}
+```
 
-Not transferable: verifier checks recipient_DID.
+**Properties:**
 
-On-chain Anchors
+- Signed by provider's private key
+- Verifiable via provider's public key
+- Non-transferable (recipient DID checked)
+- Time-bounded (expiry timestamp)
+- Replay-protected (nonce)
 
-Only store small commitments: hash(commitment_blob) and meta (capacity id, timestamp, zk-proof reference, dispute timeout).
+#### On-Chain Anchors (Future)
 
-Optionally store capability revocation lists (CRLs) if a provider cancels.
+**Minimal Storage:**
+
+- Hash of capability blob
+- Metadata: capacity ID, timestamp, ZK-proof reference
+- Dispute timeout window
+- Capability Revocation Lists (CRLs) for cancellations
+
+**Benefits:**
+
+- Small blockchain footprint
+- Auditability without revealing details
+- Dispute resolution support
 
 ---
 
@@ -392,97 +546,273 @@ POST /v1/disputes - open dispute
 
 ---
 
-Governance & Upgradability
+### Governance & Upgradability
 
-On-chain Governance Registry stores protocol parameters (e.g., MPC/Tee operators, dispute arbitrators, oracle configs).
+#### Governance Registry (Future)
 
-Governance model can be hybrid: democratic within an association (one-member-one-vote), delegated reputation, or council of stewards (for sovereign-level implementations).
+**On-Chain Parameters:**
 
-Upgrades to computation logic require multi-signature of governance council plus zk-proof of backward-compatibility migrations.
+- MPC/TEE operator registry
+- Dispute arbitrator list
+- Oracle configurations
+- Protocol versioning
 
----
+#### Governance Models
 
-Dispute Resolution
+**Flexible Governance:**
 
-1. Automated Reconciliation: First attempt: verify receipts, signatures, and zk-proofs.
+- **Democratic**: One-member-one-vote for collectives
+- **Delegated**: Reputation-weighted voting
+- **Steward Council**: Multi-sig for sovereign implementations
 
-2. Mediation: If mismatch, auto-initiate a mediation window where both parties can submit clarifying evidence.
+**Upgrade Process:**
 
-3. Arbitration: If unresolved, an arbitrator (pre-registered DID or institutional arbitrator) can request MPC inputs reveal under threshold encryption and issue binding ruling.
-
-4. Punitive Measures: Repeated dishonest declarations may result in loss of reputation, temporary suspension, or removal from certain capacity classes. Reputation records are anchored but privacy-preserving (hashed reputation buckets unless consented to reveal).
-
----
-
-Scaling & Performance
-
-Sharding by Social Graph: Partition matching and compute by social subnetworks to localize computation.
-
-Hierarchical Aggregation: Aggregate MR values at organizational nodes to reduce pairwise computations (sums & mins are associative under some transforms).
-
-Asynchronous MPC Pools: Use rotating MPC operator pools, with job batching.
-
-Cache & Incremental Compute: Store previous MR-normalization denominators and incremental deltas for small recognition updates.
+- Multi-signature approval from governance council
+- ZK-proof of backward-compatibility
+- Migration testing period
+- Graceful fallback mechanisms
 
 ---
 
-Oracles & Data-Stream Integration
+### Dispute Resolution
 
-Capacities referencing external data (e.g., a sensor stream) declare an oracle_source with an oracle attestation method (TLSNotary, Chainlink-like signer, or direct signed telemetry). Oracle attestations are required to settle allocations tied to data outcomes.
+#### 4-Stage Process
 
-Use authenticated data feeds, with signed checkpoints anchored on-chain for audits.
+**1. Automated Reconciliation** (Instant)
 
----
+- Verify receipts and signatures
+- Check ZK-proofs
+- Match commitments
+- Auto-resolve if valid
 
-Legal & Compliance Considerations
+**2. Mediation** (72-hour window)
 
-KYC/AML: Where capacities have legal exposure (money-like exchanges, cross-border regulated services), require VC attestations for KYC.
+- Both parties submit clarifying evidence
+- Automated mismatch detection
+- Suggest resolution paths
+- Facilitate agreement
 
-Securities/Derivatives Law: Recognition derivatives that resemble financial options may trigger securities or derivatives laws. Design RDX to avoid fungible monetary payouts by default; if monetary settlement is desired, route via registered entity (swap dealer / licensed intermediary).
+**3. Arbitration** (Binding)
 
-Data Protection: Comply with GDPR/CCPA: keep personal data encrypted and revealable only with consent or legal process.
+- Pre-registered arbitrator (DID)
+- Request MPC inputs reveal (threshold encryption)
+- Review evidence in secure environment
+- Issue binding ruling with reasoning
+- Anchor decision on-chain
 
----
+**4. Punitive Measures** (Reputation)
 
-Example Flows
-
-Flow A — Individual Writing a "lesson" Option
-
-1. Alice (provider) declares Capacity: 10 piano-hours/week, slotized. Commits declaration and posts hash.
-
-2. Bob expresses Desire: 2 piano-hours/week; posts commitment.
-
-3. System computes MR(Alice,Bob). If mutual-desire positive and allocation algorithm returns 2 hours, MPC produces allocation & zk-proof.
-
-4. Alice signs capability for Bob for specific slots: cap = sign(Alice, Bob, cap_id, slot_ids, expiry).
-
-5. Bob redeems capability; system records fulfilled allocation.
-
-Flow B — Organization Offering Compute Capacity as Options
-
-1. Org X publishes 1000 CPU-hours as capacities with filters requiring Org-level credentials.
-
-2. Multiple recipients (startups) express desires; MR-based normalizations compute proportional allocations.
-
-3. Organization issues non-transferable access-vouchers to recipients.
-
-Flow C — Country-Level Mutual-Recognition Clearing
-
-1. Country A and B exchange signed policy recognitions by Ministries (anchored commitments).
-
-2. MR determines quotas for data-access or technical assistance. Capacities are national project slots (e.g., satellite time)
-
-3. Settlement occurs via executed capacity allocations (scheduling, remote access credentials), not currency transfers.
+- Track repeated dishonest behavior
+- Reputation scores (privacy-preserving)
+- Temporary suspension from capacity classes
+- Removal for severe violations
+- Hashed reputation buckets (consent to reveal)
 
 ---
 
-UX Notes
+### Scaling & Performance
 
-Default views should emphasize privacy and simple consent flows.
+#### Optimization Strategies
 
-Allow participants to preview effective allocations before confirm (showing aggregated MR normalization but not raw peer recognitions).
+**Sharding by Social Graph:**
 
-Provide explainable AI/graphs showing how recognition shifts influence allocations.
+- Partition matching and compute by social subnetworks
+- Localize computation to reduce overhead
+- Cross-shard coordination for wide networks
+
+**Hierarchical Aggregation:**
+
+- Aggregate MR values at organizational nodes
+- Reduce pairwise computations
+- Leverage associative properties of min/sum operations
+
+**Asynchronous MPC Pools:**
+
+- Rotating operator pools for availability
+- Job batching for efficiency
+- Load balancing across nodes
+
+**Cache & Incremental Compute:**
+
+- Store previous MR-normalization denominators
+- Compute only deltas for small updates
+- Memoize expensive operations
+
+---
+
+### Oracles & Data Integration
+
+#### External Data Sources
+
+**Oracle Declaration:**
+
+- Capacities reference external data streams
+- Declare `oracle_source` with attestation method
+- Examples: sensor data, API feeds, telemetry
+
+**Attestation Methods:**
+
+- **TLSNotary**: Prove HTTPS responses
+- **Chainlink-style**: Decentralized oracle network
+- **Signed Telemetry**: Direct from IoT devices
+
+**Settlement Requirements:**
+
+- Oracle attestations required for data-dependent allocations
+- Signed checkpoints anchored on-chain
+- Audit trail for verification
+
+---
+
+### Legal & Compliance
+
+#### KYC/AML
+
+**Where Required:**
+
+- Money-like exchanges
+- Cross-border regulated services
+- High-value capacity transfers
+
+**Implementation:**
+
+- Verifiable Credential attestations
+- Privacy-preserving KYC (zero-knowledge proofs)
+- Regulatory compliance hooks
+
+#### Securities & Derivatives Law
+
+**Design Considerations:**
+
+- **Default**: Non-monetary, non-fungible allocations
+- **If Monetary**: Route via registered intermediaries
+- **Licensing**: Swap dealer / licensed entity required
+- **Regulatory Sandboxes**: Phase 3 pilot programs
+
+#### Data Protection (GDPR/CCPA)
+
+**Compliance Strategy:**
+
+- Personal data encrypted by default
+- Right to erasure (revoke commitments)
+- Data portability (export allocations)
+- Consent-based reveal
+- Legal process support
+
+---
+
+### Example Use Cases
+
+#### Flow A: Individual Offering Skills
+
+**Scenario**: Alice offers piano lessons
+
+1. **Declare Capacity**
+   - Alice: 10 piano-hours/week, slotized
+   - Commits declaration, posts hash
+
+2. **Express Desire**
+   - Bob: Wants 2 hours/week
+   - Posts commitment
+
+3. **Compute Allocation**
+   - System calculates \( MR(\text{Alice}, \text{Bob}) \)
+   - If mutual-desire positive: 2 hours allocated
+   - MPC produces allocation + ZK-proof
+
+4. **Issue Capability**
+   - Alice signs capability for Bob
+   - Includes: capacity_id, slot_ids, expiry
+   - Non-transferable to Bob's DID
+
+5. **Redeem & Fulfill**
+   - Bob redeems capability at lesson time
+   - System records fulfilled allocation
+   - Both parties confirm delivery
+
+**Current Implementation**: See [RDX-FLOW-CLI.md](RDX-FLOW-CLI.md) for detailed CLI flow
+
+---
+
+#### Flow B: Organization Offering Resources
+
+**Scenario**: Tech collective shares compute infrastructure
+
+1. **Publish Capacity**
+   - Org X: 1000 CPU-hours
+   - Filters: Org-level credentials required
+   - Multiple availability slots
+
+2. **Multiple Recipients**
+   - Startups express desires
+   - MR-based normalization
+   - Proportional allocations computed
+
+3. **Issue Vouchers**
+   - Non-transferable access-vouchers
+   - Time-bounded credentials
+   - Usage tracking and reporting
+
+---
+
+#### Flow C: Sovereign-Level Cooperation
+
+**Scenario**: International mutual aid for disaster response
+
+1. **Policy Recognition**
+   - Country A & B exchange signed recognitions
+   - Ministry-level commitments
+   - Anchored on-chain
+
+2. **Quota Determination**
+   - MR determines access quotas
+   - Capacities: Satellite time, technical assistance
+   - Data-access permissions
+
+3. **Non-Monetary Settlement**
+   - Scheduling and credentials (not currency)
+   - Remote access tokens
+   - Audit trail for accountability
+
+---
+
+### User Experience Guidelines
+
+#### Privacy-First Design
+
+- **Default**: Hide raw recognition values from UI
+- **Consent**: Explicit permission for revealing data
+- **Aggregates**: Show normalized shares, not absolute values
+
+#### Allocation Preview
+
+**Before Confirmation:**
+
+- Show effective allocation amounts
+- Display MR normalization (aggregated)
+- Explain filtering results
+- Preview slot assignments
+
+**Information Hiding:**
+
+- Don't reveal raw peer recognition percentages
+- Show relative shares only
+- Protect participant privacy
+
+#### Explainability
+
+**Visual Tools:**
+
+- Graph visualization of recognition network
+- Impact analysis: "What if I change this recognition?"
+- Allocation flow diagrams
+- Sensitivity analysis
+
+**Feedback:**
+
+- Real-time updates as recognition changes
+- Notification of new allocations
+- Status tracking for capabilities
 
 ---
 
@@ -498,31 +828,64 @@ Roadmap & Implementation Phases
 
 ---
 
-Risks & Mitigations
+### Risks & Mitigations
 
-Data manipulation: Require signed telemetry & multiple oracle attestations. Use slashing of reputation for provable lies.
+#### Security Risks
 
-Sybil attacks: Use reputation credentials, VC attestations, social-graph proofs, or limited-capacity onboarding.
+| Risk                  | Mitigation Strategy                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Data Manipulation** | • Require signed telemetry<br>• Multiple oracle attestations<br>• Reputation slashing for provable lies<br>• Audit trails on-chain     |
+| **Sybil Attacks**     | • Reputation credentials required<br>• VC attestations for identity<br>• Social-graph proof-of-personhood<br>• Rate-limited onboarding |
+| **Replay Attacks**    | • Nonce-based commitments<br>• Timestamp validation<br>• Capability expiry enforcement                                                 |
+| **MPC Collusion**     | • Threshold security (k-of-n)<br>• Rotating operator pools<br>• ZK-proof verification<br>• Slashing for malicious operators            |
 
-Legal classification as securities: Keep default settlement non-monetary; use licensed intermediaries for monetary components.
+#### Legal Risks
 
-Computation cost: Use batched MPC and incremental computations; limit global full-graph recomputation frequency.
+| Risk                          | Mitigation Strategy                                                                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Securities Classification** | • Default: Non-monetary settlement<br>• No fungible tokens<br>• Licensed intermediaries for monetary components<br>• Regulatory sandbox participation |
+| **Data Privacy Violations**   | • GDPR/CCPA compliance by design<br>• Encrypted storage<br>• Right to erasure support<br>• Consent-based reveal                                       |
+| **Cross-Border Compliance**   | • Jurisdictional hooks<br>• KYC/AML for regulated capacities<br>• Local legal entity partnerships                                                     |
+
+#### Performance Risks
+
+| Risk                    | Mitigation Strategy                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Computation Cost**    | • Batched MPC operations<br>• Incremental computation (deltas only)<br>• Caching of normalization factors<br>• Limit full-graph recomputation frequency |
+| **Network Congestion**  | • Sharding by social graph<br>• Hierarchical aggregation<br>• Asynchronous processing<br>• Job prioritization                                           |
+| **Storage Scalability** | • IPFS/Arweave for large data<br>• On-chain: minimal anchors only<br>• Pruning of old allocations<br>• Compressed representations                       |
 
 ---
 
-Appendix: Example Signed Capability JSON
+### Appendix: Data Formats
 
+#### Example Signed Capability
+
+```json
 {
-"capability_id": "urn:cap:uuid-...",
-"provider": "did:example:alice",
-"recipient": "did:example:bob",
-"capacity_id": "uuid-...",
-"slot_ids": ["slot-..."],
-"quantity": 2,
-"nonce": "...",
-"expiry": "2026-01-01T00:00:00Z",
-"signature": "sig_base64"
+  "capability_id": "urn:cap:uuid-a3f2c871-4d5e-4b8c-9a1f-e7d6c5b4a3f2",
+  "provider": "did:example:alice",
+  "recipient": "did:example:bob",
+  "capacity_id": "cap-piano-lessons-001",
+  "slot_ids": ["slot-mon-14:00", "slot-wed-16:00"],
+  "quantity": 2,
+  "nonce": "7f8e9d0c1b2a3",
+  "expiry": "2026-01-01T00:00:00Z",
+  "signature": "304502210098abc...def"
 }
+```
+
+#### Example Commitment
+
+```json
+{
+  "from_did": "did:example:alice",
+  "to_did": "did:example:bob",
+  "commitment": "02a7c4e8f9b1d3...",
+  "timestamp": "2025-10-05T14:32:15Z",
+  "signature": "30450221009def..."
+}
+```
 
 ---
 
