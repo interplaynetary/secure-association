@@ -1,1 +1,0 @@
-{"version":3,"file":"index-DaiDJxOy.js","sources":["../node_modules/holster/index.js"],"sourcesContent":["exports.holster = function() {\n  console.log(\"HOLSTER\");\n}\n"],"names":["holster_1","holster"],"mappings":";;;;;;;;;;;;;;;;YAAAA,IAAAC,EAAA,UAAkB,WAAW;AAC3B,UAAQ,IAAI,SAAS;AACvB;;;;;;","x_google_ignoreList":[0]}
