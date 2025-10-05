@@ -1,3 +1,11 @@
+%% RDX Flow A - FUTURE/THEORETICAL Design (Phase 1-2)
+%% 
+%% ⚠️  This describes the planned server-based architecture with REST APIs.
+%% ⚠️  For the CURRENT CLI implementation, see RDX-FLOW-CLI.md
+%%
+%% Status: Phase 0 (CLI) is complete. This design is planned for Phase 1-2.
+%%
+
 sequenceDiagram
 participant Alice as Alice (Provider)
 participant Bob as Bob (Recipient)
@@ -7,7 +15,7 @@ participant DS as Discovery Service
 participant MPC as MPC/TEE Compute
 participant Chain as On-Chain Anchors
 
-    Note over Alice,Chain: Phase 1: Registration & Identity Setup
+    Note over Alice,Chain: FUTURE DESIGN - Phase 1: Registration & Identity Setup
 
     Alice->>IDR: POST /v1/participants<br/>{did: "did:example:alice", pubkey, credentials}
     IDR-->>Alice: 200 OK {participant_id}
