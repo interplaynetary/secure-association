@@ -1,0 +1,1 @@
+{"version":3,"file":"index-BC3xq5Oq.cjs","sources":["../node_modules/holster/index.js"],"sourcesContent":["exports.holster = function() {\n  console.log(\"HOLSTER\");\n}\n"],"names":["holster_1","holster"],"mappings":"4WAAAA,EAAAC,EAAA,QAAkB,UAAW,CAC3B,QAAQ,IAAI,SAAS,CACvB","x_google_ignoreList":[0]}
